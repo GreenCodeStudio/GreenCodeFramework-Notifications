@@ -3,6 +3,8 @@
 
 namespace Notifications;
 
+use Minishlink\WebPush\Subscription;
+use Minishlink\WebPush\WebPush;
 use Notifications\Repository\NotificationsRepository;
 use Notifications\Repository\NotificationSubscriptionsRepository;
 
@@ -38,6 +40,26 @@ class Notifications
 
     private function PushToServiceWorker($notification)
     {
+        $subscriptions = $this->subscriptionDB->getForUser($notification->id_user);
+        dump($subscriptions);
+        $auth = [
+        'VAPID' => [
+            'subject' => 'https://194.182.72.177.xip.io/',
+            'publicKey' => 'BOpw8ocFV02co1cg8h-WZvfiwys3CemOyGT2cDHsPezM5yCFjrQrQ1Dz8vlihX-H2_THV9169oS6Y03QKJAtBnU', // (recommended) uncompressed public key P-256 encoded in Base64-URL
+            'privateKey' => '65gZgT0NYYAgWQ2tW43IgRyhbBp1UgIbG0oItHXqSfc', // (recommended) in fact the secret multiplier of the private key encoded in Base64-URL
+        ],
+    ];
+        $webPush = new WebPush($auth);
+        foreach ($subscriptions as $subscription) {
+            $webPush->sendNotification(
+                Subscription::create(json_decode($subscription->data, true)),
+                json_encode($notification),
+            );
+        }
+        foreach ($webPush->flush() as $report) {
+
+            dump($report);
+        }
     }
 
     public function getForCurrentUser()
@@ -55,7 +77,7 @@ class Notifications
         $row = [
             'id_user' => \Authorization\Authorization::getUserData()->id,
             'stamp' => new \DateTime(),
-            'data' => $data
+            'data' => json_encode($data)
         ];
         return $this->subscriptionDB->insert($row);
     }
