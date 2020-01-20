@@ -38,6 +38,10 @@
             <element>id</element>
         </index>
         <index>
+            <type>INDEX</type>
+            <element>id_user</element>
+        </index>
+        <index>
             <type>FOREIGN</type>
             <element>id_user</element>
             <reference name="user">
@@ -71,6 +75,10 @@
         <index>
             <type>PRIMARY</type>
             <element>id</element>
+        </index>
+        <index>
+            <type>INDEX</type>
+            <element>id_user</element>
         </index>
         <index>
             <type>FOREIGN</type>
