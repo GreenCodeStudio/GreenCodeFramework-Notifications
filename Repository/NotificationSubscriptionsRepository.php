@@ -3,7 +3,7 @@
 namespace Notifications\Repository;
 
 
-use Core\DB;
+use Core\Database\DB;
 
 class NotificationSubscriptionsRepository extends \Core\Repository
 {
