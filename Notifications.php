@@ -3,6 +3,7 @@
 
 namespace Notifications;
 
+use Authorization\Authorization;
 use Minishlink\WebPush\Subscription;
 use Minishlink\WebPush\WebPush;
 use Notifications\Repository\NotificationsRepository;
@@ -26,14 +27,12 @@ class Notifications
     private function AddToDb($notification)
     {
         $stamp = new \DateTime();
-        $expires = clone $stamp;
-        $expires->add($notification->expirationTime ?? new \DateInterval ('P1M'));
         $data = [
             'id_user' => $notification->id_user,
             'message' => $notification->message ?? "",
             'link' => $notification->link ?? null,
             'stamp' => $stamp,
-            'expires' => $expires
+            'expires' => $notification->expires
         ];
         $this->defaultDB->insert($data);
     }
@@ -80,5 +79,10 @@ class Notifications
             'data' => json_encode($data)
         ];
         return $this->subscriptionDB->insert($row);
+    }
+
+    public function hide(int $id)
+    {
+        $this->defaultDB->hide($id, Authorization::getUserId());
     }
 }

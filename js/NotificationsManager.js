@@ -1,3 +1,5 @@
+import {Ajax} from "../../Core/js/ajax";
+
 export const NotificationManager = {
     current: [],
     onChangeListeners: [],
@@ -29,6 +31,9 @@ export const NotificationManager = {
             this.current.splice(index, 1);
         }
         this.changed();
+        if (notification.id) {
+            Ajax.Notifications.hide(notification.id);
+        }
     },
     changed() {
         for (const onChangeListener of this.onChangeListeners) {
@@ -41,7 +46,6 @@ export const NotificationManager = {
     checkExpired() {
         let changed = false;
         for (let i = 0; i < this.current.length; i++) {
-            console.log('d', this.current[i].expires - new Date())
             if (this.current[i].expires && this.current[i].expires <= new Date()) {
                 this.current.splice(i, 1);
                 i--;
@@ -54,5 +58,12 @@ export const NotificationManager = {
     },
     onchange(callback) {
         this.onChangeListeners.push(callback)
+    }
+}
+if (window.initNotifications) {
+    for (const notification of window.initNotifications) {
+        notification.expires = notification.expiresRelative == null ? null : new Date(+new Date() + notification.expiresRelative * 1000)
+
+        NotificationManager.show(notification)
     }
 }
