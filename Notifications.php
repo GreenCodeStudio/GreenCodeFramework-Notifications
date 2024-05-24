@@ -11,6 +11,9 @@ use Notifications\Repository\NotificationSubscriptionsRepository;
 
 class Notifications
 {
+    private NotificationsRepository $defaultDB;
+    private NotificationSubscriptionsRepository $subscriptionDB;
+
     public function __construct()
     {
         $this->defaultDB = new NotificationsRepository();
