@@ -1,5 +1,5 @@
 {
     "require": {
-        "minishlink/web-push": "^v6.0.5"
+        "minishlink/web-push": "^v8.0.0"
     }
 }
