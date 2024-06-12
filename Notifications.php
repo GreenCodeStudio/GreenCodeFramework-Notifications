@@ -66,7 +66,9 @@ class Notifications
 
     public function getForCurrentUser()
     {
-        return $this->getForUser(\Authorization\Authorization::getUserData()->id);
+        $userId=\Authorization\Authorization::getUserData()?->id??null;
+        if(!$userId) return [];
+        return $this->getForUser($userId);
     }
 
     public function getForUser(int $id_user)
