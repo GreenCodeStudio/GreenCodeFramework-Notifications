@@ -20,7 +20,7 @@ class NotificationsRepository extends \Core\Repository
 
     public function getForUser(int $id_user)
     {
-        return DB::funquery("SELECT * FROM notification WHERE id_user = ? AND expires >= ? ORDER BY stamp DESC", [$id_user, date('Y-m-d H:i:s')])->map(function ($x) {
+        return DB::funquery("SELECT * FROM notification WHERE id_user = ? AND expires >= ? ORDER BY stamp DESC", [$id_user, date('Y-m-d H:i:s')])->execute()->map(function ($x) {
             $x->expiresRelative = $x->expires == null ? null : (strtotime($x->expires) - microtime(true));
             return $x;
         })->toArray();
