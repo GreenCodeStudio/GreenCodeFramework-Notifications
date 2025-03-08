@@ -42,25 +42,29 @@ class Notifications
 
     private function PushToServiceWorker($notification)
     {
-        $subscriptions = $this->subscriptionDB->getForUser($notification->id_user);
-        dump($subscriptions);
-        $auth = [
-            'VAPID' => [
-                'subject' => $_ENV['VAPID_subject'],
-                'publicKey' => $_ENV['VAPID_publicKey'],
-                'privateKey' => $_ENV['VAPID_privateKey'],
-            ],
-        ];
-        $webPush = new WebPush($auth);
-        foreach ($subscriptions as $subscription) {
-            $webPush->queueNotification(
-                Subscription::create(json_decode($subscription->data, true)),
-                json_encode($notification),
-            );
-        }
-        foreach ($webPush->flush() as $report) {
+        try {
+            $subscriptions = $this->subscriptionDB->getForUser($notification->id_user);
+            dump($subscriptions);
+            $auth = [
+                'VAPID' => [
+                    'subject' => $_ENV['VAPID_subject'],
+                    'publicKey' => $_ENV['VAPID_publicKey'],
+                    'privateKey' => $_ENV['VAPID_privateKey'],
+                ],
+            ];
+            $webPush = new WebPush($auth);
+            foreach ($subscriptions as $subscription) {
+                $webPush->queueNotification(
+                    Subscription::create(json_decode($subscription->data, true)),
+                    json_encode($notification),
+                );
+            }
+            foreach ($webPush->flush() as $report) {
 
-            dump($report);
+                dump($report);
+            }
+        } catch (\Exception $e) {
+            dump($e);
         }
     }
 
