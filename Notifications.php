@@ -9,6 +9,8 @@ use Minishlink\WebPush\WebPush;
 use Notifications\Repository\NotificationsRepository;
 use Notifications\Repository\NotificationSubscriptionsRepository;
 
+use Google\Auth\Credentials\ServiceAccountCredentials;
+
 class Notifications
 {
     private NotificationsRepository $defaultDB;
@@ -25,6 +27,7 @@ class Notifications
         if (empty($notification->id_user)) throw new \InvalidArgumentException('id_user must be specified');
         $this->AddToDb($notification);
         $this->PushToServiceWorker($notification);
+        $this->PushToFirebase($notification);
     }
 
     private function AddToDb($notification)
@@ -70,30 +73,42 @@ class Notifications
 
     function pushToFirebase($notification)
     {
-        $url = 'https://fcm.googleapis.com/fcm/send';
-        $fields = array(
-            'to' => '/topic/main',
-            'notification' => array(
-                'title' => $title,
-                'body' => $body
-            )
-        );
-        $headers = array(
-            'Authorization: key=' . $_ENV['firebase_push_key'],
-            'Content-Type: application/json'
-        );
+        try {
+            $keyFilePath = __DIR__ . '/../../firebase.json';
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($fields));
-        $result = curl_exec($ch);
-        curl_close($ch);
+// Załaduj klucz prywatny i uzyskaj token dostępu
+            $credentials = new ServiceAccountCredentials('https://www.googleapis.com/auth/firebase.messaging', $keyFilePath);
+            $accessToken = $credentials->fetchAuthToken()['access_token'];
 
-        return $result;
+            $url = 'https://fcm.googleapis.com/v1/projects/ems-warehouse-cordova/messages:send';
+            $headers = [
+                'Authorization: key=' . $_ENV['firebase_push_key'],
+                'Content-Type: application/json'
+            ];
+            $data = [
+                'message' => [
+                    'topic' => 'main',
+                    'notification' => [
+                        'title' => 'Test Notification',
+                        'body' => 'body'
+                    ]
+                ]
+            ];
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            $response = curl_exec($ch);
+            curl_close($ch);
+
+            return $response;
+        }catch (\Exception $e) {
+            dump($e);
+        }
     }
 
 

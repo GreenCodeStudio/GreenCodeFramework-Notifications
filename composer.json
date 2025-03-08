@@ -1,5 +1,6 @@
 {
     "require": {
-        "minishlink/web-push": "^v9.0.2"
+        "minishlink/web-push": "^v9.0.2",
+        "google/apiclient": "^v2.18.2"
     }
 }
