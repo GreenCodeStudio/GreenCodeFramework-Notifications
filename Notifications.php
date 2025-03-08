@@ -45,15 +45,15 @@ class Notifications
         $subscriptions = $this->subscriptionDB->getForUser($notification->id_user);
         dump($subscriptions);
         $auth = [
-        'VAPID' => [
-            'subject' => 'https://194.182.72.177.xip.io/',
-            'publicKey' => 'BOpw8ocFV02co1cg8h-WZvfiwys3CemOyGT2cDHsPezM5yCFjrQrQ1Dz8vlihX-H2_THV9169oS6Y03QKJAtBnU', // (recommended) uncompressed public key P-256 encoded in Base64-URL
-            'privateKey' => '65gZgT0NYYAgWQ2tW43IgRyhbBp1UgIbG0oItHXqSfc', // (recommended) in fact the secret multiplier of the private key encoded in Base64-URL
-        ],
-    ];
+            'VAPID' => [
+                'subject' => $_ENV['VAPID_subject'],
+                'publicKey' => $_ENV['VAPID_publicKey'],
+                'privateKey' => $_ENV['VAPID_privateKey'],
+            ],
+        ];
         $webPush = new WebPush($auth);
         foreach ($subscriptions as $subscription) {
-            $webPush->sendNotification(
+            $webPush->queueNotification(
                 Subscription::create(json_decode($subscription->data, true)),
                 json_encode($notification),
             );
