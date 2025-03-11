@@ -6,10 +6,10 @@ use Notifications\Notifications;
 
 class NotificationsAjax extends \Core\AjaxController
 {
-    public function subscribePush($data)
+    public function subscribePush($type, $data)
     {
-        $Balance = new \Notifications\Notifications();
-        $Balance->subscribePush($data);
+        $notifications = new \Notifications\Notifications();
+        $notifications->subscribePush($type, $data);
     }
 
     public function hide(int $id)

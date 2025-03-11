@@ -13,6 +13,7 @@ use Google\Auth\Credentials\ServiceAccountCredentials;
 
 class Notifications
 {
+    private static $firebaseAccessToken;
     private NotificationsRepository $defaultDB;
     private NotificationSubscriptionsRepository $subscriptionDB;
 
@@ -26,8 +27,8 @@ class Notifications
     {
         if (empty($notification->id_user)) throw new \InvalidArgumentException('id_user must be specified');
         $this->AddToDb($notification);
-        $this->PushToServiceWorker($notification);
-        $this->PushToFirebase($notification);
+        $this->PushToUser($notification);
+        $this->PushToFirebaseTest($notification);
     }
 
     private function AddToDb($notification)
@@ -43,11 +44,22 @@ class Notifications
         $this->defaultDB->insert($data);
     }
 
-    private function PushToServiceWorker($notification)
+    private function PushToUser($notification)
+    {
+
+        $subscriptions = $this->subscriptionDB->getForUser($notification->id_user);
+
+        foreach ($subscriptions as $subscription) {
+            if($subscription->type == 'webpush') {
+                $this->PushToServiceWorker($subscription. $notification);
+            } else if($subscription->type == 'android') {
+                $this->pushToFirebase($subscription, $notification);
+            }
+        }
+    }
+    private function PushToServiceWorker($subscription, $notification)
     {
         try {
-            $subscriptions = $this->subscriptionDB->getForUser($notification->id_user);
-            dump($subscriptions);
             $auth = [
                 'VAPID' => [
                     'subject' => $_ENV['VAPID_subject'],
@@ -56,14 +68,12 @@ class Notifications
                 ],
             ];
             $webPush = new WebPush($auth);
-            foreach ($subscriptions as $subscription) {
                 $webPush->queueNotification(
                     Subscription::create(json_decode($subscription->data, true)),
                     json_encode($notification),
                 );
-            }
-            foreach ($webPush->flush() as $report) {
 
+            foreach ($webPush->flush() as $report) {
                 dump($report);
             }
         } catch (\Exception $e) {
@@ -71,18 +81,57 @@ class Notifications
         }
     }
 
-    function pushToFirebase($notification)
+    private function authorizeFirebase()
+    {
+        if (empty(static::$firebaseAccessToken)) {
+            $keyFilePath = __DIR__ . '/../../firebase.json';
+            $credentials = new ServiceAccountCredentials('https://www.googleapis.com/auth/firebase.messaging', $keyFilePath);
+
+            static::$firebaseAccessToken = $credentials->fetchAuthToken()['access_token'];
+        }
+        return static::$firebaseAccessToken;
+    }
+
+    function pushToFirebase($subscription, $notification)
     {
         try {
-            $keyFilePath = __DIR__ . '/../../firebase.json';
-
-// Załaduj klucz prywatny i uzyskaj token dostępu
-            $credentials = new ServiceAccountCredentials('https://www.googleapis.com/auth/firebase.messaging', $keyFilePath);
-            $accessToken = $credentials->fetchAuthToken()['access_token'];
-
-            $url = 'https://fcm.googleapis.com/v1/projects/ems-warehouse-cordova/messages:send';
+            $url = 'https://fcm.googleapis.com/v1/projects/1037498931384/messages:send';
             $headers = [
-                'Authorization: key=' . $_ENV['firebase_push_key'],
+                'Authorization: Bearer ' . $this->authorizeFirebase(),
+                'Content-Type: application/json'
+            ];
+            $data = [
+                'message' => [
+                    'token' => json_decode($subscription->data)->registrationId,
+                    'data' => [
+                        'title' => $notification->message,
+                        'body'=> $notification->body??'',
+                        'payload'=> $notification->link
+                    ]
+                ]
+            ];
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            $response = curl_exec($ch);
+            curl_close($ch);
+            return $response;
+        } catch (\Exception $e) {
+            dump($e);
+        }
+    }
+
+    function pushToFirebaseTest()
+    {
+        try {
+            $url = 'https://fcm.googleapis.com/v1/projects/1037498931384/messages:send';
+            $headers = [
+                'Authorization: Bearer ' . $this->authorizeFirebase(),
                 'Content-Type: application/json'
             ];
             $data = [
@@ -104,11 +153,39 @@ class Notifications
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
             $response = curl_exec($ch);
             curl_close($ch);
-
+            $this->checkFirebase(json_decode($response));
             return $response;
-        }catch (\Exception $e) {
+        } catch (\Exception $e) {
             dump($e);
         }
+    }
+
+    private function checkFirebase($x)
+    {
+        $url = 'https://fcm.googleapis.com/v1/' . $x->name;
+        $headers = [
+            'Authorization: Bearer ' . $this->authorizeFirebase(),
+            'Content-Type: application/json'
+        ];
+        $data = [
+            'message' => [
+                'topic' => 'main',
+                'notification' => [
+                    'title' => 'Test Notification',
+                    'body' => 'body'
+                ]
+            ]
+        ];
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        $response = curl_exec($ch);
+        curl_close($ch);
     }
 
 
@@ -122,15 +199,17 @@ class Notifications
         return $this->defaultDB->getForUser($id_user);
     }
 
-    public function subscribePush($data)
+    public function subscribePush($type, $data)
     {
         $row = [
             'id_user' => \Authorization\Authorization::getUserData()->id,
             'stamp' => new \DateTime(),
-            'data' => json_encode($data)
+            'data' => json_encode($data),
+            'type' => $type
         ];
-        return $this->subscriptionDB->insert($row);
+        return $this->subscriptionDB->insertIfUnique($row);
     }
+
 
     public function hide(int $id)
     {

@@ -22,4 +22,17 @@ class NotificationSubscriptionsRepository extends \Core\Repository
     {
         return DB::get("SELECT * FROM notification_subscription WHERE id_user = ?", [$id_user]);
     }
+
+    public function insertIfUnique(array $row)
+    {
+        DB::beginTransaction();
+        $id = DB::get("SELECT id FROM notification_subscription WHERE data = CAST(? AS JSON) AND type = ?", [$row["data"], $row["type"]])[0]->id;
+        if ($id > 0) {
+            $this->update($id, ["id_user" => $row["id_user"], 'stamp' => $row['stamp']]);
+        } else {
+            $this->insert($row);
+        }
+
+        DB::commit();
+    }
 }
