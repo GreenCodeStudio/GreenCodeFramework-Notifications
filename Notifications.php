@@ -50,13 +50,14 @@ class Notifications
         $subscriptions = $this->subscriptionDB->getForUser($notification->id_user);
 
         foreach ($subscriptions as $subscription) {
-            if($subscription->type == 'webpush') {
-                $this->PushToServiceWorker($subscription. $notification);
-            } else if($subscription->type == 'android') {
+            if ($subscription->type == 'web') {
+                $this->PushToServiceWorker($subscription, $notification);
+            } else if ($subscription->type == 'android') {
                 $this->pushToFirebase($subscription, $notification);
             }
         }
     }
+
     private function PushToServiceWorker($subscription, $notification)
     {
         try {
@@ -68,10 +69,10 @@ class Notifications
                 ],
             ];
             $webPush = new WebPush($auth);
-                $webPush->queueNotification(
-                    Subscription::create(json_decode($subscription->data, true)),
-                    json_encode($notification),
-                );
+            $webPush->queueNotification(
+                Subscription::create(json_decode($subscription->data, true)),
+                json_encode($notification),
+            );
 
             foreach ($webPush->flush() as $report) {
                 dump($report);
@@ -105,8 +106,8 @@ class Notifications
                     'token' => json_decode($subscription->data)->registrationId,
                     'data' => [
                         'title' => $notification->message,
-                        'body'=> $notification->body??'',
-                        'payload'=> $notification->link
+                        'body' => $notification->body ?? '',
+                        'payload' => $notification->link
                     ]
                 ]
             ];
